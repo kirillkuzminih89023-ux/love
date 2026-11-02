@@ -20,23 +20,24 @@ const CONFIG = {
   finalText: "Ты самое лучшее, что со мной случалось 💗",
 
   music: "music.mp3",            // mp3-файл, загруженный рядом с index.html (если файла нет — открытка просто без музыки)
-  musicStart: 0,                 // с какой секунды песни начинать
+  musicStart: 65,                // с какой секунды песни начинать (1:05 — как в видео)
   songLabel: "MiyaGi & Эндшпиль · Фея", // подпись сверху
 
   // Карточки по порядку. at — на какой секунде (от начала музыки) появляется карточка.
   // В title слова в *звёздочках* подсвечиваются цветом.
-  // Типы: gift, split, nav, battery, message, pulse, weather, calendar, question (question — всегда последней)
+  // Типы: question, nav, pulse, split, transfer, gift, certificate, delivery, battery, message, weather, calendar
+  // question с auto: true сам нажимает «Да»; без auto — ждёт, пока она нажмёт (тогда ставь его последним).
   scenes: [
-    { type: "gift",     at: 0,  title: "Дарю тебе *своё* *сердце*" },
-    { type: "split",    at: 6,  title: "*Весь* *мир* — пополам" },
-    { type: "nav",      at: 12, title: "Уже *лечу* к тебе" },
-    { type: "battery",  at: 18, title: "Ты мой *заряд*" },
-    { type: "message",  at: 24, title: "Жду твоих *сообщений*" },
-    { type: "pulse",    at: 30, title: "Сердце бьётся *чаще*" },
-    { type: "weather",  at: 36, title: "С тобой всегда *солнечно*" },
-    { type: "calendar", at: 42, title: "*Каждый* *день* с тобой" },
-    { type: "question", at: 48, title: "Ну что, это *любовь?*" }
-  ]
+    { type: "question",    at: 0,     auto: true, title: "Это *любовь?*" },
+    { type: "nav",         at: 2.0,   title: "Уже *лечу* к тебе" },
+    { type: "pulse",       at: 4.75,  title: "Сердце бьётся *чаще*" },
+    { type: "split",       at: 7.0,   title: "*Весь* *мир* — пополам" },
+    { type: "transfer",    at: 9.5,   title: "Всё, что есть, — *тебе*" },
+    { type: "gift",        at: 12.25, title: "Дарю тебе *своё* *сердце*" },
+    { type: "certificate", at: 18.5,  title: "Ты моя *единственная*" },
+    { type: "delivery",    at: 22.0,  title: "Любовь *уже* *в* *пути*" }
+  ],
+  endAt: 28.25                   // на какой секунде показать финальный экран
 };
 </script>
 <style>
@@ -82,7 +83,7 @@ const CONFIG = {
     border:1.5px solid var(--edge);
     box-shadow:0 0 45px var(--glow),inset 0 1px 0 rgba(255,255,255,.15),0 24px 60px rgba(0,0,0,.5);
     opacity:0;transform:rotateX(18deg) rotateY(-14deg) scale(.7) translateY(70px)}
-  .scene.on .card{animation:cardIn 1s .45s cubic-bezier(.2,.9,.25,1.15) forwards,float 4.5s 1.45s ease-in-out infinite}
+  .scene.on .card{animation:cardIn .7s .15s cubic-bezier(.2,.9,.25,1.15) forwards,float 4.5s .85s ease-in-out infinite}
   @keyframes cardIn{to{opacity:1;transform:rotateX(5deg) rotateY(-7deg)}}
   @keyframes float{0%,100%{transform:rotateX(5deg) rotateY(-7deg)}50%{transform:rotateX(-3deg) rotateY(5deg) translateY(-8px)}}
   .card::after{content:"";position:absolute;top:-30%;bottom:-30%;width:32%;left:-70%;pointer-events:none;
@@ -186,6 +187,22 @@ const CONFIG = {
   .scene.on .grid7 i{animation:lit .4s forwards}
   @keyframes lit{to{background:linear-gradient(135deg,#b48cff,#7a4dff);box-shadow:0 0 10px rgba(160,120,255,.7)}}
 
+  /* transfer, certificate */
+  .items{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .item{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.1);border-radius:16px;padding:12px 14px;font-weight:700;transition:background .3s}
+  .item small{display:block;opacity:.6;font-size:11px;font-weight:600}
+  .chk{width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.12);color:transparent;transition:.3s cubic-bezier(.3,1.6,.5,1)}
+  .item.done{background:rgba(255,255,255,.2)}
+  .item.done .chk{background:var(--accent);color:#2a1030;transform:scale(1.15)}
+
+  /* delivery */
+  .steps{display:flex;flex-direction:column;gap:11px;margin:16px 0}
+  .step{display:flex;align-items:center;gap:10px;font-weight:700;opacity:.5;transition:opacity .3s}
+  .step i{width:22px;height:22px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,.5);display:grid;place-items:center;font-size:12px;font-style:normal;transition:.3s}
+  .step.done{opacity:1}
+  .step.done i{background:#b48cff;border-color:#b48cff;box-shadow:0 0 10px #b48cff}
+  .step.done i::after{content:"✓"}
+
   /* question */
   .q{text-align:center;font-size:24px;font-weight:900;margin-top:4px}
   .sub{opacity:.6;font-size:14px;text-align:center;margin-top:4px}
@@ -287,6 +304,10 @@ async function tap(btn) {
 }
 
 /* ====== карточки ====== */
+let K = 1; // во сколько раз ускорить анимацию карточки, если ей мало времени
+const w = (ms) => sleep(ms * K);
+const cnt = (el, a, b, ms, f) => count(el, a, b, ms * K, f);
+
 const TYPES = {
   gift: {
     theme: "pink", deco: [["🌹", "left:-14px;top:30%"], ["😘", "right:-12px;bottom:22%;animation-delay:-1.2s"]],
@@ -296,7 +317,7 @@ const TYPES = {
       <div class="row"><div class="ava">${ME}</div><div><b>Для тебя</b><small>без возврата</small></div></div>
       <button class="btn" data-gb>Подарить</button>`,
     async play(q) {
-      await sleep(2000);
+      await w(2000);
       const b = q("[data-gb]"); await tap(b); b.textContent = "Подарено ✓";
       burst(...center(b), 26, ["💗", "💖", "❤️", "🌹", "✨"]); haptic("ok");
     }
@@ -313,12 +334,13 @@ const TYPES = {
         <div class="half"><div class="ava">${HER}</div><span data-h2>$0</span></div>
       </div>`,
     async play(q) {
-      await sleep(1400);
+      await w(1400);
+      q("[data-bar]").style.transitionDuration = 2 * K + "s";
       q("[data-bar]").style.width = "100%";
-      await count(q("[data-am]"), 0, 105, 2000, (v) => `$${Math.round(v)} трлн`);
+      await cnt(q("[data-am]"), 0, 105, 2000, (v) => `$${Math.round(v)} трлн`);
       haptic("light");
       const half = (v) => `$${v.toFixed(1).replace(".0", "")} трлн`;
-      count(q("[data-h1]"), 0, 52.5, 1300, half); await count(q("[data-h2]"), 0, 52.5, 1300, half);
+      cnt(q("[data-h1]"), 0, 52.5, 1300, half); await cnt(q("[data-h2]"), 0, 52.5, 1300, half);
       burst(...center(q("[data-am]")), 14, ["💸", "💵", "✨"]);
     }
   },
@@ -330,14 +352,15 @@ const TYPES = {
       <div class="track"><div class="line"><i data-rt></i></div><div class="dot me" data-me>${ME}</div><div class="dot her" data-her>${HER}</div></div>
       <div class="foot"><span>режим</span><span data-mode>обычный</span></div>`,
     async play(q) {
-      await sleep(1400);
+      await w(1400);
       q("[data-car]").classList.add("go");
-      await count(q("[data-sp]"), 0, 35, 1000, Math.round);
-      await sleep(500);
+      await cnt(q("[data-sp]"), 0, 35, 1000, Math.round);
+      await w(500);
       q("[data-mode]").textContent = "🚀 к тебе на всех парах"; haptic("heavy");
+      q("[data-me]").style.transitionDuration = q("[data-rt]").style.transitionDuration = 2.6 * K + "s";
       q("[data-me]").style.left = "calc(100% - 48px)"; q("[data-rt]").style.width = "100%";
-      count(q("[data-eta]"), 12, 0, 2600, (v) => Math.round(v) + " мин");
-      await count(q("[data-sp]"), 35, 299, 2600, Math.round);
+      cnt(q("[data-eta]"), 12, 0, 2600, (v) => Math.round(v) + " мин");
+      await cnt(q("[data-sp]"), 35, 299, 2600, Math.round);
       q("[data-eta]").textContent = "на месте 💞"; q("[data-car]").classList.remove("go");
       burst(...center(q("[data-her]")), 16, ["💞", "✨", "💗"]); haptic("ok");
     }
@@ -349,9 +372,9 @@ const TYPES = {
       <div class="batt"><i data-fill></i><b data-pct>3%</b></div>
       <div class="foot"><span>источник: ${CONFIG.her}</span><span data-st>заряжается…</span></div>`,
     async play(q) {
-      await sleep(1400);
+      await w(1400);
       const fill = q("[data-fill]");
-      await count(q("[data-pct]"), 3, 100, 2800, (v) => { fill.style.width = v + "%"; return Math.round(v) + "%"; });
+      await cnt(q("[data-pct]"), 3, 100, 2800, (v) => { fill.style.width = v + "%"; return Math.round(v) + "%"; });
       q("[data-st]").textContent = "полностью заряжен 💛"; haptic("ok");
       burst(...center(fill), 18, ["⚡", "💛", "✨"]);
     }
@@ -364,10 +387,10 @@ const TYPES = {
     async play(q) {
       const chat = q("[data-chat]");
       const say = (who, text) => { const b = document.createElement("div"); b.className = "bub " + who; b.innerHTML = text; chat.appendChild(b); haptic("light"); return b; };
-      await sleep(1500); say("her", "Ты где? 🥺");
-      await sleep(900); say("her", "Скучаю…");
-      await sleep(700); const t = say("me", '<span class="typing"><i></i><i></i><i></i></span>'); t.style.padding = "0";
-      await sleep(1300); t.remove(); say("me", "Уже еду к тебе ❤️");
+      await w(1500); say("her", "Ты где? 🥺");
+      await w(900); say("her", "Скучаю…");
+      await w(700); const t = say("me", '<span class="typing"><i></i><i></i><i></i></span>'); t.style.padding = "0";
+      await w(1300); t.remove(); say("me", "Уже еду к тебе ❤️");
       burst(...center(chat), 12, ["💜", "💌", "✨"]);
     }
   },
@@ -382,13 +405,13 @@ const TYPES = {
       </svg>
       <div class="foot"><span>состояние</span><span data-st>спокойно</span></div>`,
     async play(q) {
-      await sleep(1400);
+      await w(1400);
       const hb = q("[data-hb]"), run = q(".ecg .run");
-      count(q("[data-bpm]"), 72, 180, 2600, (v) => {
+      cnt(q("[data-bpm]"), 72, 180, 2600, (v) => {
         const d = (60 / v).toFixed(2) + "s"; hb.style.animationDuration = d; run.style.animationDuration = (60 / v * 1.6).toFixed(2) + "s";
         return Math.round(v);
       });
-      await sleep(2700);
+      await w(2700);
       q("[data-st]").textContent = "влюблён 💘"; haptic("heavy");
       burst(...center(hb), 16, ["❤️", "💘", "💓"]);
     }
@@ -402,8 +425,8 @@ const TYPES = {
       <div class="hours">${["☀️", "🌤️", "☀️", "💖", "☀️"].map((e, i) =>
         `<div style="animation-delay:${1.6 + i * 0.15}s"><small>${["сейчас", "12:00", "15:00", "18:00", "всегда"][i]}</small><span>${e}</span></div>`).join("")}</div>`,
     async play(q) {
-      await sleep(1400);
-      await count(q("[data-temp]"), 0, 36.6, 2200, (v) => "+" + v.toFixed(1) + "°");
+      await w(1400);
+      await cnt(q("[data-temp]"), 0, 36.6, 2200, (v) => "+" + v.toFixed(1) + "°");
       haptic("light");
     }
   },
@@ -416,15 +439,62 @@ const TYPES = {
         `<i style="animation-delay:${1.3 + i * 0.07}s">${i % 5 === 3 ? "💜" : ""}</i>`).join("")}</div>
       <div class="foot"><span>и это только начало</span><span>∞</span></div>`,
     async play(q) {
-      await sleep(1400);
+      await w(1400);
       const d = CONFIG.together ? Math.max(0, Math.floor((Date.now() - new Date(CONFIG.together)) / 864e5)) : NaN;
-      if (isNaN(d)) { await count(q("[data-days]"), 0, 999, 2000, Math.round); q("[data-days]").textContent = "∞"; q("[data-word]").textContent = ""; }
+      if (isNaN(d)) { await cnt(q("[data-days]"), 0, 999, 2000, Math.round); q("[data-days]").textContent = "∞"; q("[data-word]").textContent = ""; }
       else {
-        await count(q("[data-days]"), 0, d, 2200, Math.round);
+        await cnt(q("[data-days]"), 0, d, 2200, Math.round);
         const n = d % 100, w = n > 10 && n < 20 ? "дней" : ["дней", "день", "дня", "дня", "дня", "дней", "дней", "дней", "дней", "дней"][d % 10];
         q("[data-word]").textContent = w;
       }
       haptic("ok"); burst(...center(q("[data-days]")), 14, ["💜", "✨", "💫"]);
+    }
+  },
+  transfer: {
+    theme: "sun", deco: [["💰", "right:-10px;top:-24px"]],
+    html: () => `
+      <div class="top"><div class="row" style="padding:0;background:none"><div class="ava">${HER}</div><div><b>Перевод для неё</b><small>получатель: ${CONFIG.her}</small></div></div></div>
+      <div class="items">
+        <div class="item" data-i1><span>Моя половина мира</span><b class="chk">✓</b></div>
+        <div class="item" data-i2><span>Я сам · 1 шт</span><b class="chk">✓</b></div>
+      </div>
+      <div class="foot" style="margin-top:14px;align-items:center"><span>Остаток у меня</span><b data-rest style="font-size:24px">$52.5 трлн</b></div>`,
+    async play(q) {
+      await w(900); q("[data-i1]").classList.add("done"); haptic("light");
+      await w(500); q("[data-i2]").classList.add("done"); haptic("light");
+      await cnt(q("[data-rest]"), 52.5, 0, 900, (v) => v < 0.05 ? "$0" : `$${v.toFixed(1)} трлн`);
+      haptic("ok"); burst(...center(q("[data-rest]")), 14, ["💛", "💰", "✨"]);
+    }
+  },
+  certificate: {
+    theme: "pink", deco: [["😊", "left:-14px;bottom:24%"]],
+    html: () => `
+      <div class="top"><div class="label">Сертификат · любовь</div><div style="font-size:34px" class="bolt">💝</div></div>
+      <div class="big" style="margin:10px 0 4px"><span data-n>0</span> <small>шт</small></div>
+      <div class="items">
+        <div class="item" data-i1><span><small>Владелец</small>${CONFIG.her}</span><b class="chk">✓</b></div>
+        <div class="item" data-i2><span><small>Срок действия</small>навсегда</span><b class="chk">✓</b></div>
+      </div>`,
+    async play(q) {
+      await w(700); await cnt(q("[data-n]"), 0, 1, 400, Math.round);
+      await w(500); q("[data-i1]").classList.add("done"); haptic("light");
+      await w(600); q("[data-i2]").classList.add("done"); haptic("ok");
+      burst(...center(q("[data-n]")), 14, ["💝", "💗", "✨"]);
+    }
+  },
+  delivery: {
+    theme: "violet", deco: [["💌", "right:-10px;top:42%"]],
+    html: () => `
+      <div class="top"><div class="label">Доставка · любовь</div><div style="font-size:30px">📦</div></div>
+      <div class="steps">${["Упаковано", "Адресат: " + CONFIG.her, "Уже рядом", "Вручено лично"].map((t, i) =>
+        `<div class="step" data-s${i}><i></i>${t}</div>`).join("")}</div>
+      <div class="bar"><i data-bar style="background:linear-gradient(90deg,#b48cff,#ff8ad8);box-shadow:0 0 16px #b48cff;transition-duration:.8s"></i></div>`,
+    async play(q) {
+      for (let i = 0; i < 4; i++) {
+        await w(i ? 1200 : 800);
+        q("[data-s" + i + "]").classList.add("done"); q("[data-bar]").style.width = (i + 1) * 25 + "%"; haptic("light");
+      }
+      haptic("ok"); burst(...center(q("[data-bar]")), 18, ["💜", "💌", "✨"]);
     }
   },
   question: {
@@ -434,7 +504,11 @@ const TYPES = {
       <div class="q">Это любовь?</div>
       <div class="sub">Подтвердите действие</div>
       <div class="choices"><button class="btn no" data-no>Нет</button><button class="btn yes" data-yes>Да</button></div>`,
-    async play() {}
+    async play(q) {   // только для auto: true — «Да» нажимается само
+      await w(1100);
+      const y = q("[data-yes]"); await tap(y); haptic("ok");
+      burst(...center(y), 22, ["❤️", "💖", "💗", "✨"]);
+    }
   }
 };
 
@@ -447,7 +521,7 @@ function titleHTML(t) {
 function build() {
   $("#stage").innerHTML = CONFIG.scenes.map((s, i) => {
     const T = TYPES[s.type];
-    return `<section class="scene" id="sc${i}" data-bg="${T.theme}" style="--accent:${ACCENT[T.theme]}">
+    return `<section class="scene" id="sc${i}" data-bg="${T.theme}" ${s.auto ? "data-auto" : ""} style="--accent:${ACCENT[T.theme]}">
       <h1 class="title">${titleHTML(s.title)}</h1>
       <div class="cardwrap">${T.deco.map(([e, st]) => `<div class="deco" style="${st}">${e}</div>`).join("")}
         <div class="card ${T.theme}" data-type="${s.type}">${T.html()}</div></div></section>`;
@@ -472,6 +546,7 @@ let audio = null;
 if (CONFIG.music) { audio = new Audio(CONFIG.music); audio.preload = "auto"; audio.loop = true; }
 async function startMusic() {
   if (!audio) return;
+  if (audio.readyState < 1) await new Promise((r) => { audio.addEventListener("loadedmetadata", r, { once: true }); setTimeout(r, 4000); });
   audio.currentTime = CONFIG.musicStart;
   try { await audio.play(); $("#mute").classList.add("on"); if (CONFIG.songLabel) $("#song").classList.add("on"); } catch (e) {}
 }
@@ -490,12 +565,19 @@ async function run() {
     if (id !== runId) return;
     const el = $("#sc" + i);
     show(el);
-    if (s.type === "question") return;   // дальше ждём «Да»
+    if (s.type === "question" && !s.auto) return;   // дальше ждём «Да»
+    const next = CONFIG.scenes[i + 1], end = next ? next.at : (CONFIG.endAt || s.at + 6);
+    K = Math.max(0.35, Math.min(1, (end - s.at) / 6));
     TYPES[s.type].play((sel) => el.querySelector(sel));
   }
   const last = CONFIG.scenes[CONFIG.scenes.length - 1];
-  await sleep(t0 + ((last.at || 0) + 6) * 1000 - performance.now());
-  if (id === runId) show($("#sEnd"));
+  await sleep(t0 + (CONFIG.endAt || (last.at || 0) + 6) * 1000 - performance.now());
+  if (id === runId) finale();
+}
+
+async function finale() {
+  show($("#sEnd"));
+  for (let i = 0; i < 5; i++) { burst(innerWidth * Math.random(), innerHeight * 0.75, 14, ["❤️", "💖", "💕"]); await sleep(350); }
 }
 
 // «Нет» убегает, «Да» растёт
@@ -509,12 +591,12 @@ document.addEventListener("pointerdown", (e) => {
   b.parentElement.querySelector("[data-yes]").style.transform = `scale(${Math.min(1.45, 1 + noTries * 0.08)})`;
 });
 document.addEventListener("click", async (e) => {
-  const y = e.target.closest("[data-yes]"); if (!y) return;
+  const y = e.target.closest("[data-yes]"); if (!y || y.closest("[data-auto]")) return;
   await tap(y); haptic("ok");
   burst(...center(y), 40, ["❤️", "💖", "💗", "💕", "🌹", "✨"]);
+  runId++;
   await sleep(900);
-  show($("#sEnd"));
-  for (let i = 0; i < 4; i++) { burst(innerWidth * Math.random(), innerHeight * 0.75, 14, ["❤️", "💖", "💕"]); await sleep(350); }
+  finale();
 });
 
 $("#openBtn").addEventListener("click", async () => { await tap($("#openBtn")); run(); });
