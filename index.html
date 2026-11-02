@@ -5,20 +5,67 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Для тебя</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+/* =====================================================================
+   ТВОИ НАСТРОЙКИ — меняй только этот блок
+   ===================================================================== */
+const CONFIG = {
+  me: "Я",                       // как подписан ты (1–2 буквы)
+  her: "Солнышко",               // её имя
+  herIcon: "☀️",                 // что написано в её кружочке
+  together: "2024-08-25",        // дата, когда вы вместе, в формате "2025-02-14" (пусто = ∞)
+
+  startText: "Солнышко, у меня есть кое-что для тебя…",
+  finalTitle: "Я тебя люблю",
+  finalText: "Ты самое лучшее, что со мной случалось 💗",
+
+  music: "music.mp3",            // mp3-файл, загруженный рядом с index.html (если файла нет — открытка просто без музыки)
+  musicStart: 0,                 // с какой секунды песни начинать
+  songLabel: "MiyaGi & Эндшпиль · Фея", // подпись сверху
+
+  // Карточки по порядку. at — на какой секунде (от начала музыки) появляется карточка.
+  // В title слова в *звёздочках* подсвечиваются цветом.
+  // Типы: gift, split, nav, battery, message, pulse, weather, calendar, question (question — всегда последней)
+  scenes: [
+    { type: "gift",     at: 0,  title: "Дарю тебе *своё* *сердце*" },
+    { type: "split",    at: 6,  title: "*Весь* *мир* — пополам" },
+    { type: "nav",      at: 12, title: "Уже *лечу* к тебе" },
+    { type: "battery",  at: 18, title: "Ты мой *заряд*" },
+    { type: "message",  at: 24, title: "Жду твоих *сообщений*" },
+    { type: "pulse",    at: 30, title: "Сердце бьётся *чаще*" },
+    { type: "weather",  at: 36, title: "С тобой всегда *солнечно*" },
+    { type: "calendar", at: 42, title: "*Каждый* *день* с тобой" },
+    { type: "question", at: 48, title: "Ну что, это *любовь?*" }
+  ]
+};
+</script>
 <style>
-  /* ====== всё оформление ====== */
   html,body{margin:0;height:100%;overflow:hidden;background:#0d0820;color:#fff;
     font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
   .bg{position:fixed;inset:0;opacity:0;transition:opacity 1.2s ease}
   .bg.on{opacity:1}
-  .bg.pink {background:radial-gradient(130% 85% at 50% 115%,#ff8a5c 0%,#c23a9e 32%,#4a1d7a 65%,#140b2e 100%)}
-  .bg.green{background:radial-gradient(130% 85% at 50% 115%,#e8733a 0%,#3a6f74 34%,#1f2f5c 66%,#0c1027 100%)}
-  .bg.blue {background:radial-gradient(130% 85% at 50% 115%,#e07a8f 0%,#5466c4 36%,#25306f 66%,#0c1030 100%)}
+  .bg.pink  {background:radial-gradient(130% 85% at 50% 115%,#ff8a5c 0%,#c23a9e 32%,#4a1d7a 65%,#140b2e 100%)}
+  .bg.green {background:radial-gradient(130% 85% at 50% 115%,#e8733a 0%,#3a6f74 34%,#1f2f5c 66%,#0c1027 100%)}
+  .bg.blue  {background:radial-gradient(130% 85% at 50% 115%,#e07a8f 0%,#5466c4 36%,#25306f 66%,#0c1030 100%)}
+  .bg.sun   {background:radial-gradient(130% 85% at 50% 115%,#ffc15c 0%,#e0623f 32%,#5c2352 66%,#160b24 100%)}
+  .bg.red   {background:radial-gradient(130% 85% at 50% 115%,#ff8a6a 0%,#b8234a 32%,#3d0f35 66%,#120614 100%)}
+  .bg.violet{background:radial-gradient(130% 85% at 50% 115%,#ea8ed4 0%,#7348c8 34%,#2b1a6e 66%,#0e0a2c 100%)}
   #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 
+  .song{position:fixed;z-index:5;top:calc(16px + env(safe-area-inset-top));left:0;right:0;text-align:center;
+    font-size:14px;font-weight:700;opacity:0;transition:opacity 1s}
+  .song.on{opacity:.85}
+  .eq{display:inline-flex;gap:2px;align-items:flex-end;height:12px;margin-right:7px}
+  .eq i{width:3px;height:3px;background:#fff;border-radius:2px;animation:eq .8s ease-in-out infinite}
+  .eq i:nth-child(2){animation-delay:-.3s}.eq i:nth-child(3){animation-delay:-.55s}.eq i:nth-child(4){animation-delay:-.15s}
+  @keyframes eq{0%,100%{height:3px}50%{height:12px}}
+  .mute{position:fixed;z-index:6;top:calc(8px + env(safe-area-inset-top));right:10px;width:36px;height:36px;border-radius:50%;
+    border:0;background:rgba(255,255,255,.12);color:#fff;font-size:16px;display:none;cursor:pointer}
+  .mute.on{display:block}
+
   .scene{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;box-sizing:border-box;
-    padding:calc(56px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
+    padding:calc(62px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
     opacity:0;pointer-events:none;transition:opacity .6s ease}
   .scene.on{opacity:1;pointer-events:auto}
 
@@ -29,7 +76,7 @@
   @keyframes word{to{opacity:1;transform:none;filter:none}}
   .hl{color:var(--accent);text-shadow:0 0 26px var(--accent)}
 
-  .cardwrap{position:relative;perspective:900px;width:min(100%,400px);margin:auto 0}
+  .cardwrap{position:relative;perspective:900px;width:min(100%,420px);margin:auto 0}
   .card{position:relative;border-radius:30px;padding:22px;overflow:hidden;
     background:linear-gradient(155deg,var(--c1),var(--c2));
     border:1.5px solid var(--edge);
@@ -42,45 +89,53 @@
     background:linear-gradient(100deg,transparent,rgba(255,255,255,.3),transparent);transform:skewX(-18deg)}
   .scene.on .card::after{animation:shine 3.4s 1.3s ease-in-out infinite}
   @keyframes shine{0%{left:-70%}45%,100%{left:140%}}
-  .card.pink {--c1:#5e1656;--c2:#260a3a;--edge:rgba(255,120,240,.55);--glow:rgba(255,60,220,.65)}
-  .card.green{--c1:#0e5d3c;--c2:#0a2620;--edge:rgba(90,255,170,.5);--glow:rgba(40,255,150,.55)}
-  .card.blue {--c1:#1f3d96;--c2:#0d1944;--edge:rgba(140,170,255,.5);--glow:rgba(100,150,255,.6)}
+  .card.pink  {--c1:#5e1656;--c2:#260a3a;--edge:rgba(255,120,240,.55);--glow:rgba(255,60,220,.65)}
+  .card.green {--c1:#0e5d3c;--c2:#0a2620;--edge:rgba(90,255,170,.5);--glow:rgba(40,255,150,.55)}
+  .card.blue  {--c1:#1f3d96;--c2:#0d1944;--edge:rgba(140,170,255,.5);--glow:rgba(100,150,255,.6)}
+  .card.sun   {--c1:#7a3d0c;--c2:#2e1405;--edge:rgba(255,200,90,.55);--glow:rgba(255,170,40,.6)}
+  .card.red   {--c1:#6a0f1e;--c2:#2a0610;--edge:rgba(255,90,110,.55);--glow:rgba(255,50,80,.6)}
+  .card.violet{--c1:#3d1a8a;--c2:#170a3a;--edge:rgba(180,140,255,.55);--glow:rgba(150,100,255,.6)}
 
-  .deco{position:absolute;font-size:38px;z-index:3;animation:bob 2.6s ease-in-out infinite;filter:drop-shadow(0 6px 12px rgba(0,0,0,.4))}
+  .deco{position:absolute;font-size:40px;z-index:3;animation:bob 2.6s ease-in-out infinite;filter:drop-shadow(0 6px 12px rgba(0,0,0,.4))}
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-12px) rotate(8deg)}}
 
   .label{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
   .center{text-align:center}
+  .top{display:flex;justify-content:space-between;align-items:center}
+  .foot{display:flex;justify-content:space-between;font-size:13px;opacity:.85}
   .row{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.08);border-radius:18px;padding:10px 12px}
-  .ava{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:900;
+  .ava{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:13px;
     background:linear-gradient(135deg,#ff7ade,#c2185b);box-shadow:0 0 0 3px rgba(255,255,255,.2)}
+  .ava.me{background:linear-gradient(135deg,#7fa2ff,#3b5bd6)}
   .row b{display:block;font-size:17px}.row small{opacity:.6;font-size:12px}
   .btn{display:block;margin-top:12px;height:54px;border-radius:18px;border:0;width:100%;font:inherit;font-weight:800;font-size:17px;
     color:#fff;background:linear-gradient(90deg,#ff3ccf,#cf1fb4);box-shadow:0 0 26px rgba(255,60,220,.6);
-    position:relative;overflow:hidden;transition:transform .15s,background .4s;cursor:pointer}
+    position:relative;overflow:hidden;transition:transform .15s;cursor:pointer}
   .btn.press{transform:scale(.94)}
   .ripple{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px;border-radius:50%;
     border:2px solid #fff;background:rgba(255,255,255,.3);animation:rip .7s forwards;pointer-events:none}
   @keyframes rip{from{transform:scale(.3);opacity:1}to{transform:scale(1.5);opacity:0}}
+  .big{font-size:clamp(56px,17vw,76px);font-weight:900;line-height:.95;letter-spacing:-.03em;text-shadow:0 0 22px var(--glow)}
+  .big small{font-size:15px;font-weight:700;opacity:.8;letter-spacing:0}
+  .bigrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px}
 
-  .bigheart{font-size:100px;line-height:1;margin:14px 0 16px;text-align:center;animation:beat 1.1s ease-in-out infinite;
+  /* gift */
+  .bigheart{font-size:110px;line-height:1;margin:14px 0 16px;text-align:center;animation:beat 1.1s ease-in-out infinite;
     filter:drop-shadow(0 0 22px rgba(255,80,200,.8))}
   @keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.15)}30%{transform:scale(.97)}45%{transform:scale(1.08)}}
   .mini{position:absolute;bottom:30%;font-size:16px;pointer-events:none;animation:rise 2.4s ease-out forwards}
   @keyframes rise{0%{transform:translateY(0) scale(.5);opacity:0}20%{opacity:1}100%{transform:translateY(-170px) scale(1.1);opacity:0}}
 
-  .amount{font-size:clamp(40px,12vw,52px);font-weight:900;margin:2px 0 14px;letter-spacing:-.02em;text-shadow:0 0 20px rgba(80,255,170,.7)}
+  /* split */
+  .amount{font-size:clamp(40px,12vw,54px);font-weight:900;margin:2px 0 14px;letter-spacing:-.02em;text-shadow:0 0 20px var(--glow)}
   .bar{height:12px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden}
   .bar i{display:block;height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,#3cffa0,#b6ffd9);box-shadow:0 0 16px #3cffa0;transition:width 2s cubic-bezier(.4,0,.2,1)}
   .halves{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
   .half{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.25);border-radius:16px;padding:10px;font-weight:800;font-size:14px;white-space:nowrap}
-  .half .ava{width:30px;height:30px;font-size:12px}
-  .half .ava.me{background:linear-gradient(135deg,#7fa2ff,#3b5bd6)}
+  .half .ava{width:30px;height:30px;font-size:11px}
 
-  .speedrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px}
-  .speed{font-size:72px;font-weight:900;line-height:.95;letter-spacing:-.03em;text-shadow:0 0 22px rgba(130,170,255,.8)}
-  .speed small{font-size:15px;font-weight:700;opacity:.8;letter-spacing:0}
-  .car{font-size:48px;display:inline-block}
+  /* nav */
+  .car{font-size:50px;display:inline-block}
   .car.go{animation:shake .12s linear infinite}
   @keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-1px,1px)}75%{transform:translate(1px,-1px)}}
   .track{position:relative;height:50px;margin:16px 0 10px;background:rgba(255,255,255,.08);border-radius:25px}
@@ -89,9 +144,49 @@
   .dot{position:absolute;top:6px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
   .dot.me{left:6px;background:#7f9cff;transition:left 2.6s cubic-bezier(.6,0,.2,1);z-index:2}
   .dot.her{right:6px;background:#ff4fb0}
-  .foot{display:flex;justify-content:space-between;font-size:13px;opacity:.85}
-  .top{display:flex;justify-content:space-between;align-items:center}
 
+  /* battery */
+  .batt{position:relative;height:80px;border:3px solid rgba(255,255,255,.75);border-radius:20px;margin:18px 16px 14px 0;padding:5px;box-sizing:border-box}
+  .batt::after{content:"";position:absolute;right:-13px;top:24px;width:8px;height:26px;border-radius:0 6px 6px 0;background:rgba(255,255,255,.75)}
+  .batt i{display:block;height:100%;width:3%;border-radius:13px;background:linear-gradient(90deg,#ffd34d,#ff9a2e);box-shadow:0 0 20px #ffb03a}
+  .batt b{position:absolute;inset:0;display:grid;place-items:center;font-size:32px;font-weight:900;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .bolt{font-size:30px;animation:beat .9s infinite}
+
+  /* message */
+  .chat{display:flex;flex-direction:column;gap:8px;margin-top:14px;min-height:178px}
+  .bub{max-width:78%;padding:10px 14px;border-radius:18px;font-size:16px;font-weight:600;animation:bubIn .45s cubic-bezier(.2,.9,.3,1.4) both}
+  .bub.her{align-self:flex-start;background:rgba(255,255,255,.14);border-bottom-left-radius:6px}
+  .bub.me{align-self:flex-end;background:linear-gradient(135deg,#9a7bff,#5a3bd6);border-bottom-right-radius:6px;box-shadow:0 0 18px rgba(150,100,255,.5)}
+  .typing{display:inline-flex;gap:4px;padding:14px 16px}
+  .typing i{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.4;animation:dots 1s infinite}
+  .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+  @keyframes dots{50%{opacity:1;transform:translateY(-3px)}}
+  @keyframes bubIn{from{opacity:0;transform:translateY(14px) scale(.8)}}
+
+  /* pulse */
+  .ecg{width:100%;height:76px;margin:10px 0 8px;overflow:visible}
+  .ecg path{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+  .ecg .base{stroke:rgba(255,255,255,.15)}
+  .ecg .run{stroke:#ff5a7a;filter:drop-shadow(0 0 6px #ff5a7a);stroke-dasharray:40 100;stroke-dashoffset:140;animation:ecg 1.6s linear infinite}
+  @keyframes ecg{to{stroke-dashoffset:0}}
+  .hb{font-size:46px;display:inline-block;animation:beat 1s infinite}
+
+  /* weather */
+  .sunicon{font-size:64px;display:inline-block;animation:spin 9s linear infinite;filter:drop-shadow(0 0 22px #ffb030)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hours{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px}
+  .hours div{background:rgba(0,0,0,.22);border-radius:14px;padding:8px 0;text-align:center;opacity:0;transform:translateY(10px)}
+  .scene.on .hours div{animation:word .5s forwards}
+  .hours small{display:block;font-size:10px;opacity:.7;margin-bottom:4px}
+  .hours span{font-size:20px}
+
+  /* calendar */
+  .grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:8px 0 14px}
+  .grid7 i{aspect-ratio:1;border-radius:9px;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:12px;font-style:normal}
+  .scene.on .grid7 i{animation:lit .4s forwards}
+  @keyframes lit{to{background:linear-gradient(135deg,#b48cff,#7a4dff);box-shadow:0 0 10px rgba(160,120,255,.7)}}
+
+  /* question */
   .q{text-align:center;font-size:24px;font-weight:900;margin-top:4px}
   .sub{opacity:.6;font-size:14px;text-align:center;margin-top:4px}
   .choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
@@ -116,10 +211,15 @@
 <div class="bg pink on" id="bg-pink"></div>
 <div class="bg green" id="bg-green"></div>
 <div class="bg blue" id="bg-blue"></div>
+<div class="bg sun" id="bg-sun"></div>
+<div class="bg red" id="bg-red"></div>
+<div class="bg violet" id="bg-violet"></div>
 <canvas id="fx"></canvas>
 
-<!-- 0. Заставка -->
-<section class="scene on" data-bg="pink" id="s0">
+<div class="song" id="song"><span class="eq"><i></i><i></i><i></i><i></i></span><span id="songText"></span></div>
+<button class="mute" id="mute">🔊</button>
+
+<section class="scene on" data-bg="pink" id="sStart">
   <div class="startbox">
     <div class="envelope">💌</div>
     <p id="startText"></p>
@@ -127,78 +227,9 @@
   </div>
 </section>
 
-<!-- 1. Подарок -->
-<section class="scene" data-bg="pink" style="--accent:#ff6fe0" id="s1">
-  <h1 class="title" data-title="Дарю тебе *своё* *сердце*"></h1>
-  <div class="cardwrap">
-    <div class="deco" style="left:-14px;top:30%">🌹</div>
-    <div class="deco" style="right:-12px;bottom:22%;animation-delay:-1.2s">😘</div>
-    <div class="card pink" id="giftCard">
-      <div class="label center">Подарок</div>
-      <div class="bigheart">💗</div>
-      <div class="row"><div class="ava" id="giftAva"></div><div><b>Для тебя</b><small>без возврата</small></div></div>
-      <button class="btn" id="giftBtn">Подарить</button>
-    </div>
-  </div>
-</section>
+<div id="stage"></div>
 
-<!-- 2. Поделить мир -->
-<section class="scene" data-bg="green" style="--accent:#5dffb0" id="s2">
-  <h1 class="title" data-title="*Весь* *мир* — пополам"></h1>
-  <div class="cardwrap">
-    <div class="deco" style="right:-6px;top:-22px">💸</div>
-    <div class="card green">
-      <div class="label">Разделить счёт · поровну</div>
-      <div style="margin-top:14px;opacity:.75;font-size:14px">Весь мир</div>
-      <div class="amount" id="amount">$0 трлн</div>
-      <div class="bar"><i id="bar"></i></div>
-      <div class="halves">
-        <div class="half"><div class="ava me" id="meAva1"></div><span id="h1">$0</span></div>
-        <div class="half"><div class="ava" id="herAva1"></div><span id="h2">$0</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 3. Навигатор -->
-<section class="scene" data-bg="blue" style="--accent:#8fb0ff" id="s3">
-  <h1 class="title" data-title="Уже *лечу* к тебе"></h1>
-  <div class="cardwrap">
-    <div class="deco" style="left:-10px;top:-20px">✨</div>
-    <div class="card blue">
-      <div class="top"><div class="label">Навигатор · к тебе</div><div style="font-weight:800;opacity:.85" id="eta">12 мин</div></div>
-      <div class="speedrow">
-        <div class="speed"><span id="speed">0</span> <small>км/ч</small></div>
-        <div class="car" id="car">🚗</div>
-      </div>
-      <div class="track">
-        <div class="line"><i id="route"></i></div>
-        <div class="dot me" id="meDot">Я</div>
-        <div class="dot her" id="herDot"></div>
-      </div>
-      <div class="foot"><span>режим</span><span id="mode">обычный</span></div>
-    </div>
-  </div>
-</section>
-
-<!-- 4. Вопрос -->
-<section class="scene" data-bg="pink" style="--accent:#ff5fc8" id="s4">
-  <h1 class="title" data-title="Ну что, это *любовь?*"></h1>
-  <div class="cardwrap">
-    <div class="card pink">
-      <div class="center" style="font-size:44px;animation:beat 1.1s infinite">❤️</div>
-      <div class="q">Это любовь?</div>
-      <div class="sub">Подтвердите действие</div>
-      <div class="choices">
-        <button class="btn no" id="noBtn">Нет</button>
-        <button class="btn yes" id="yesBtn">Да</button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 5. Финал -->
-<section class="scene" data-bg="pink" id="s5">
+<section class="scene" data-bg="pink" id="sEnd">
   <div class="finalbox">
     <div class="envelope" style="animation:beat 1.1s infinite">💖</div>
     <h2 id="finalTitle"></h2>
@@ -208,48 +239,19 @@
 </section>
 
 <script>
-/* ====== ТВОИ НАСТРОЙКИ — меняй тексты тут ====== */
-const CONFIG = {
-  me: "Я",                      // как подписан ты (1–2 буквы)
-  her: "Она",                   // как подписана она (имя или 1–3 буквы)
-  startText: "У меня есть кое-что для тебя…",
-  finalTitle: "Я тебя люблю",
-  finalText: "Ты самое лучшее, что со мной случалось 💗",
-  music: ""                     // путь к mp3 рядом с файлом, например "music.mp3" (необязательно)
-};
-
-/* ====== дальше можно не трогать ====== */
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("#140b2e"); tg.setBackgroundColor("#140b2e"); } catch (e) {} }
 const haptic = (t) => { try { t === "ok" ? tg.HapticFeedback.notificationOccurred("success") : tg.HapticFeedback.impactOccurred(t || "medium"); } catch (e) {} };
 
 const $ = (s) => document.querySelector(s);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const scenes = [...document.querySelectorAll(".scene")];
+const ME = CONFIG.me.slice(0, 2), HER = CONFIG.herIcon || CONFIG.her.slice(0, 3);
+const ACCENT = { pink: "#ff6fe0", green: "#5dffb0", blue: "#8fb0ff", sun: "#ffc04d", red: "#ff6b81", violet: "#b99bff" };
 
 $("#startText").textContent = CONFIG.startText;
 $("#finalTitle").textContent = CONFIG.finalTitle;
 $("#finalText").textContent = CONFIG.finalText;
-$("#giftAva").textContent = CONFIG.me.slice(0, 1);
-$("#meAva1").textContent = CONFIG.me.slice(0, 2);
-$("#herAva1").textContent = CONFIG.her.slice(0, 3);
-$("#herDot").textContent = CONFIG.her.slice(0, 3);
-$("#meDot").textContent = CONFIG.me.slice(0, 2);
-
-// заголовки: каждое слово вылетает по очереди, *слово* — подсвечено
-document.querySelectorAll(".title").forEach((h) => {
-  h.innerHTML = h.dataset.title.split(" ").map((w, i) => {
-    const hl = w.startsWith("*");
-    w = w.replace(/\*/g, "");
-    return `<span class="${hl ? "hl" : ""}" style="animation-delay:${0.1 + i * 0.13}s">${w}</span>`;
-  }).join("");
-});
-
-function show(id) {
-  const s = $("#" + id);
-  scenes.forEach((x) => x.classList.toggle("on", x === s));
-  document.querySelectorAll(".bg").forEach((b) => b.classList.toggle("on", b.id === "bg-" + s.dataset.bg));
-}
+$("#songText").textContent = CONFIG.songLabel;
 
 function count(el, from, to, ms, fmt) {
   return new Promise((done) => {
@@ -261,7 +263,6 @@ function count(el, from, to, ms, fmt) {
     })(t0);
   });
 }
-
 function burst(x, y, n, set) {
   for (let i = 0; i < n; i++) {
     const s = document.createElement("span");
@@ -278,7 +279,6 @@ function burst(x, y, n, set) {
   }
 }
 const center = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-
 async function tap(btn) {
   const r = document.createElement("span"); r.className = "ripple"; btn.appendChild(r);
   btn.classList.add("press"); haptic("light");
@@ -286,96 +286,243 @@ async function tap(btn) {
   setTimeout(() => r.remove(), 700);
 }
 
-// сердечки, поднимающиеся внутри карточки подарка
+/* ====== карточки ====== */
+const TYPES = {
+  gift: {
+    theme: "pink", deco: [["🌹", "left:-14px;top:30%"], ["😘", "right:-12px;bottom:22%;animation-delay:-1.2s"]],
+    html: () => `
+      <div class="label center">Подарок</div>
+      <div class="bigheart">💗</div>
+      <div class="row"><div class="ava">${ME}</div><div><b>Для тебя</b><small>без возврата</small></div></div>
+      <button class="btn" data-gb>Подарить</button>`,
+    async play(q) {
+      await sleep(2000);
+      const b = q("[data-gb]"); await tap(b); b.textContent = "Подарено ✓";
+      burst(...center(b), 26, ["💗", "💖", "❤️", "🌹", "✨"]); haptic("ok");
+    }
+  },
+  split: {
+    theme: "green", deco: [["💸", "right:-6px;top:-22px"]],
+    html: () => `
+      <div class="label">Разделить счёт · поровну</div>
+      <div style="margin-top:14px;opacity:.75;font-size:14px">Весь мир</div>
+      <div class="amount" data-am>$0 трлн</div>
+      <div class="bar"><i data-bar></i></div>
+      <div class="halves">
+        <div class="half"><div class="ava me">${ME}</div><span data-h1>$0</span></div>
+        <div class="half"><div class="ava">${HER}</div><span data-h2>$0</span></div>
+      </div>`,
+    async play(q) {
+      await sleep(1400);
+      q("[data-bar]").style.width = "100%";
+      await count(q("[data-am]"), 0, 105, 2000, (v) => `$${Math.round(v)} трлн`);
+      haptic("light");
+      const half = (v) => `$${v.toFixed(1).replace(".0", "")} трлн`;
+      count(q("[data-h1]"), 0, 52.5, 1300, half); await count(q("[data-h2]"), 0, 52.5, 1300, half);
+      burst(...center(q("[data-am]")), 14, ["💸", "💵", "✨"]);
+    }
+  },
+  nav: {
+    theme: "blue", deco: [["✨", "left:-10px;top:-20px"]],
+    html: () => `
+      <div class="top"><div class="label">Навигатор · к тебе</div><div style="font-weight:800;opacity:.85" data-eta>12 мин</div></div>
+      <div class="bigrow"><div class="big"><span data-sp>0</span> <small>км/ч</small></div><div class="car" data-car>🚗</div></div>
+      <div class="track"><div class="line"><i data-rt></i></div><div class="dot me" data-me>${ME}</div><div class="dot her" data-her>${HER}</div></div>
+      <div class="foot"><span>режим</span><span data-mode>обычный</span></div>`,
+    async play(q) {
+      await sleep(1400);
+      q("[data-car]").classList.add("go");
+      await count(q("[data-sp]"), 0, 35, 1000, Math.round);
+      await sleep(500);
+      q("[data-mode]").textContent = "🚀 к тебе на всех парах"; haptic("heavy");
+      q("[data-me]").style.left = "calc(100% - 48px)"; q("[data-rt]").style.width = "100%";
+      count(q("[data-eta]"), 12, 0, 2600, (v) => Math.round(v) + " мин");
+      await count(q("[data-sp]"), 35, 299, 2600, Math.round);
+      q("[data-eta]").textContent = "на месте 💞"; q("[data-car]").classList.remove("go");
+      burst(...center(q("[data-her]")), 16, ["💞", "✨", "💗"]); haptic("ok");
+    }
+  },
+  battery: {
+    theme: "sun", deco: [["⚡", "right:-8px;top:-24px"]],
+    html: () => `
+      <div class="top"><div class="label">Заряд · от тебя</div><div class="bolt">⚡</div></div>
+      <div class="batt"><i data-fill></i><b data-pct>3%</b></div>
+      <div class="foot"><span>источник: ${CONFIG.her}</span><span data-st>заряжается…</span></div>`,
+    async play(q) {
+      await sleep(1400);
+      const fill = q("[data-fill]");
+      await count(q("[data-pct]"), 3, 100, 2800, (v) => { fill.style.width = v + "%"; return Math.round(v) + "%"; });
+      q("[data-st]").textContent = "полностью заряжен 💛"; haptic("ok");
+      burst(...center(fill), 18, ["⚡", "💛", "✨"]);
+    }
+  },
+  message: {
+    theme: "violet", deco: [["💌", "left:-12px;top:-22px"]],
+    html: () => `
+      <div class="top"><div class="row" style="padding:0;background:none"><div class="ava">${HER}</div><div><b>${CONFIG.her}</b><small>в сети</small></div></div><div style="opacity:.6;font-size:13px">сейчас</div></div>
+      <div class="chat" data-chat></div>`,
+    async play(q) {
+      const chat = q("[data-chat]");
+      const say = (who, text) => { const b = document.createElement("div"); b.className = "bub " + who; b.innerHTML = text; chat.appendChild(b); haptic("light"); return b; };
+      await sleep(1500); say("her", "Ты где? 🥺");
+      await sleep(900); say("her", "Скучаю…");
+      await sleep(700); const t = say("me", '<span class="typing"><i></i><i></i><i></i></span>'); t.style.padding = "0";
+      await sleep(1300); t.remove(); say("me", "Уже еду к тебе ❤️");
+      burst(...center(chat), 12, ["💜", "💌", "✨"]);
+    }
+  },
+  pulse: {
+    theme: "red", deco: [["💘", "right:-10px;top:-24px"]],
+    html: () => `
+      <div class="top"><div class="label">Пульс · рядом с тобой</div><span class="hb" data-hb>❤️</span></div>
+      <div class="big" style="margin-top:6px"><span data-bpm>72</span> <small>уд/мин</small></div>
+      <svg class="ecg" viewBox="0 0 300 60" preserveAspectRatio="none">
+        <path class="base" d="M0 32 H50 L60 32 L68 10 L76 54 L84 22 L92 32 H150 L160 32 L168 4 L176 58 L184 18 L192 32 H250 L258 32 L266 12 L274 52 L282 24 L290 32 H300"/>
+        <path class="run" pathLength="100" d="M0 32 H50 L60 32 L68 10 L76 54 L84 22 L92 32 H150 L160 32 L168 4 L176 58 L184 18 L192 32 H250 L258 32 L266 12 L274 52 L282 24 L290 32 H300"/>
+      </svg>
+      <div class="foot"><span>состояние</span><span data-st>спокойно</span></div>`,
+    async play(q) {
+      await sleep(1400);
+      const hb = q("[data-hb]"), run = q(".ecg .run");
+      count(q("[data-bpm]"), 72, 180, 2600, (v) => {
+        const d = (60 / v).toFixed(2) + "s"; hb.style.animationDuration = d; run.style.animationDuration = (60 / v * 1.6).toFixed(2) + "s";
+        return Math.round(v);
+      });
+      await sleep(2700);
+      q("[data-st]").textContent = "влюблён 💘"; haptic("heavy");
+      burst(...center(hb), 16, ["❤️", "💘", "💓"]);
+    }
+  },
+  weather: {
+    theme: "sun", deco: [["🌈", "left:-14px;bottom:-14px"]],
+    html: () => `
+      <div class="top"><div class="label">Погода · рядом с тобой</div><span style="opacity:.7;font-size:13px">сейчас</span></div>
+      <div class="bigrow"><div class="big" data-temp>+0°</div><div class="sunicon">☀️</div></div>
+      <div style="margin-top:8px;font-weight:700;opacity:.85">Ясно. Облаков нет, только ты</div>
+      <div class="hours">${["☀️", "🌤️", "☀️", "💖", "☀️"].map((e, i) =>
+        `<div style="animation-delay:${1.6 + i * 0.15}s"><small>${["сейчас", "12:00", "15:00", "18:00", "всегда"][i]}</small><span>${e}</span></div>`).join("")}</div>`,
+    async play(q) {
+      await sleep(1400);
+      await count(q("[data-temp]"), 0, 36.6, 2200, (v) => "+" + v.toFixed(1) + "°");
+      haptic("light");
+    }
+  },
+  calendar: {
+    theme: "violet", deco: [["📅", "right:-8px;top:-24px"]],
+    html: () => `
+      <div class="label">Мы вместе</div>
+      <div class="bigrow"><div class="big"><span data-days>0</span> <small data-word>дней</small></div><div style="font-size:46px">💜</div></div>
+      <div class="grid7">${Array.from({ length: 21 }, (_, i) =>
+        `<i style="animation-delay:${1.3 + i * 0.07}s">${i % 5 === 3 ? "💜" : ""}</i>`).join("")}</div>
+      <div class="foot"><span>и это только начало</span><span>∞</span></div>`,
+    async play(q) {
+      await sleep(1400);
+      const d = CONFIG.together ? Math.max(0, Math.floor((Date.now() - new Date(CONFIG.together)) / 864e5)) : NaN;
+      if (isNaN(d)) { await count(q("[data-days]"), 0, 999, 2000, Math.round); q("[data-days]").textContent = "∞"; q("[data-word]").textContent = ""; }
+      else {
+        await count(q("[data-days]"), 0, d, 2200, Math.round);
+        const n = d % 100, w = n > 10 && n < 20 ? "дней" : ["дней", "день", "дня", "дня", "дня", "дней", "дней", "дней", "дней", "дней"][d % 10];
+        q("[data-word]").textContent = w;
+      }
+      haptic("ok"); burst(...center(q("[data-days]")), 14, ["💜", "✨", "💫"]);
+    }
+  },
+  question: {
+    theme: "pink", deco: [],
+    html: () => `
+      <div class="center" style="font-size:46px;animation:beat 1.1s infinite">❤️</div>
+      <div class="q">Это любовь?</div>
+      <div class="sub">Подтвердите действие</div>
+      <div class="choices"><button class="btn no" data-no>Нет</button><button class="btn yes" data-yes>Да</button></div>`,
+    async play() {}
+  }
+};
+
+function titleHTML(t) {
+  return t.split(" ").map((w, i) => {
+    const hl = w.includes("*"); w = w.replace(/\*/g, "");
+    return `<span class="${hl ? "hl" : ""}" style="animation-delay:${0.1 + i * 0.13}s">${w}</span>`;
+  }).join("");
+}
+function build() {
+  $("#stage").innerHTML = CONFIG.scenes.map((s, i) => {
+    const T = TYPES[s.type];
+    return `<section class="scene" id="sc${i}" data-bg="${T.theme}" style="--accent:${ACCENT[T.theme]}">
+      <h1 class="title">${titleHTML(s.title)}</h1>
+      <div class="cardwrap">${T.deco.map(([e, st]) => `<div class="deco" style="${st}">${e}</div>`).join("")}
+        <div class="card ${T.theme}" data-type="${s.type}">${T.html()}</div></div></section>`;
+  }).join("");
+}
+function show(s) {
+  document.querySelectorAll(".scene").forEach((x) => x.classList.toggle("on", x === s));
+  document.querySelectorAll(".bg").forEach((b) => b.classList.toggle("on", b.id === "bg-" + s.dataset.bg));
+}
+
+// сердечки внутри карточки подарка
 setInterval(() => {
-  if (!$("#s1").classList.contains("on")) return;
+  const card = $(".scene.on .card[data-type=gift]"); if (!card) return;
   const m = document.createElement("span"); m.className = "mini";
   m.textContent = ["❤️", "💕", "💗", "🌹"][Math.floor(Math.random() * 4)];
   m.style.left = 10 + Math.random() * 80 + "%";
-  $("#giftCard").appendChild(m); setTimeout(() => m.remove(), 2500);
+  card.appendChild(m); setTimeout(() => m.remove(), 2500);
 }, 260);
 
-function reset() {
-  $("#giftBtn").textContent = "Подарить";
-  $("#amount").textContent = "$0 трлн"; $("#bar").style.width = "0";
-  $("#h1").textContent = "$0"; $("#h2").textContent = "$0";
-  $("#speed").textContent = "0"; $("#eta").textContent = "12 мин"; $("#mode").textContent = "обычный";
-  $("#meDot").style.left = "6px"; $("#route").style.width = "0"; $("#car").classList.remove("go");
-  noTries = 0; $("#noBtn").style.transform = ""; $("#noBtn").textContent = "Нет"; $("#yesBtn").style.transform = "";
+/* ====== музыка ====== */
+let audio = null;
+if (CONFIG.music) { audio = new Audio(CONFIG.music); audio.preload = "auto"; audio.loop = true; }
+async function startMusic() {
+  if (!audio) return;
+  audio.currentTime = CONFIG.musicStart;
+  try { await audio.play(); $("#mute").classList.add("on"); if (CONFIG.songLabel) $("#song").classList.add("on"); } catch (e) {}
 }
+$("#mute").addEventListener("click", () => { audio.muted = !audio.muted; $("#mute").textContent = audio.muted ? "🔇" : "🔊"; });
 
+/* ====== сценарий ====== */
+let runId = 0;
 async function run() {
-  reset();
-  // 1 — подарок
-  show("s1"); await sleep(2300);
-  await tap($("#giftBtn"));
-  $("#giftBtn").textContent = "Подарено ✓";
-  burst(...center($("#giftBtn")), 26, ["💗", "💖", "❤️", "🌹", "✨"]); haptic("ok");
-  await sleep(2600);
-
-  // 2 — весь мир пополам
-  show("s2"); await sleep(1500);
-  $("#bar").style.width = "100%";
-  await count($("#amount"), 0, 105, 2000, (v) => `$${Math.round(v)} трлн`);
-  haptic("light");
-  const half = (v) => `$${v.toFixed(1).replace(".0", "")} трлн`;
-  count($("#h1"), 0, 52.5, 1400, half); await count($("#h2"), 0, 52.5, 1400, half);
-  burst(...center($("#amount")), 14, ["💸", "💵", "✨"]);
-  await sleep(2400);
-
-  // 3 — навигатор
-  show("s3"); await sleep(1500);
-  $("#car").classList.add("go");
-  await count($("#speed"), 0, 35, 1200, (v) => Math.round(v));
-  await sleep(700);
-  $("#mode").textContent = "🚀 к тебе на всех парах"; haptic("heavy");
-  $("#meDot").style.left = "calc(100% - 48px)"; $("#route").style.width = "100%";
-  count($("#eta"), 12, 0, 2600, (v) => Math.round(v) + " мин");
-  await count($("#speed"), 35, 299, 2600, (v) => Math.round(v));
-  $("#eta").textContent = "на месте 💞"; $("#car").classList.remove("go");
-  burst(...center($("#herDot")), 16, ["💞", "✨", "💗"]); haptic("ok");
-  await sleep(2400);
-
-  // 4 — вопрос (ждём «Да»)
-  show("s4");
+  const id = ++runId;
+  build(); noTries = 0;
+  await startMusic();
+  const t0 = performance.now();
+  for (let i = 0; i < CONFIG.scenes.length; i++) {
+    const s = CONFIG.scenes[i];
+    await sleep(t0 + (s.at || 0) * 1000 - performance.now());
+    if (id !== runId) return;
+    const el = $("#sc" + i);
+    show(el);
+    if (s.type === "question") return;   // дальше ждём «Да»
+    TYPES[s.type].play((sel) => el.querySelector(sel));
+  }
+  const last = CONFIG.scenes[CONFIG.scenes.length - 1];
+  await sleep(t0 + ((last.at || 0) + 6) * 1000 - performance.now());
+  if (id === runId) show($("#sEnd"));
 }
 
-// кнопка «Нет» убегает, «Да» растёт
+// «Нет» убегает, «Да» растёт
 let noTries = 0;
 const noTexts = ["Нет", "Точно?", "Подумай 🥺", "Не-а", "Ну пожалуйста", "Ладно, жми «Да»"];
-function dodge(e) {
-  e.preventDefault();
-  noTries++; haptic("light");
-  const b = $("#noBtn");
+document.addEventListener("pointerdown", (e) => {
+  const b = e.target.closest("[data-no]"); if (!b) return;
+  e.preventDefault(); noTries++; haptic("light");
   b.textContent = noTexts[Math.min(noTries, noTexts.length - 1)];
-  const x = (Math.random() - 0.5) * 160, y = -40 - Math.random() * 120;
-  b.style.transform = `translate(${x}px,${y}px) scale(${Math.max(0.55, 1 - noTries * 0.08)})`;
-  $("#yesBtn").style.transform = `scale(${Math.min(1.45, 1 + noTries * 0.08)})`;
-}
-$("#noBtn").addEventListener("pointerdown", dodge);
-$("#noBtn").addEventListener("click", (e) => e.preventDefault());
-
-$("#yesBtn").addEventListener("click", async () => {
-  await tap($("#yesBtn"));
-  haptic("ok");
-  const [x, y] = center($("#yesBtn"));
-  burst(x, y, 40, ["❤️", "💖", "💗", "💕", "🌹", "✨"]);
+  b.style.transform = `translate(${(Math.random() - 0.5) * 140}px,${-30 - Math.random() * 80}px) scale(${Math.max(0.55, 1 - noTries * 0.08)})`;
+  b.parentElement.querySelector("[data-yes]").style.transform = `scale(${Math.min(1.45, 1 + noTries * 0.08)})`;
+});
+document.addEventListener("click", async (e) => {
+  const y = e.target.closest("[data-yes]"); if (!y) return;
+  await tap(y); haptic("ok");
+  burst(...center(y), 40, ["❤️", "💖", "💗", "💕", "🌹", "✨"]);
   await sleep(900);
-  show("s5");
+  show($("#sEnd"));
   for (let i = 0; i < 4; i++) { burst(innerWidth * Math.random(), innerHeight * 0.75, 14, ["❤️", "💖", "💕"]); await sleep(350); }
 });
 
-let audio = null;
-$("#openBtn").addEventListener("click", async () => {
-  await tap($("#openBtn"));
-  if (CONFIG.music && !audio) { audio = new Audio(CONFIG.music); audio.loop = true; audio.play().catch(() => {}); }
-  run();
-});
+$("#openBtn").addEventListener("click", async () => { await tap($("#openBtn")); run(); });
 $("#againBtn").addEventListener("click", () => run());
 
 /* ====== светящиеся частицы на фоне ====== */
 const cv = $("#fx"), ctx = cv.getContext("2d");
-let W, H, dots = [];
+let W, H; const dots = [];
 function resize() {
   const d = devicePixelRatio || 1;
   W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
