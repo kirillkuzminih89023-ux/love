@@ -113,6 +113,7 @@ const CONFIG = {
     color:#fff;background:linear-gradient(90deg,#ff3ccf,#cf1fb4);box-shadow:0 0 26px rgba(255,60,220,.6);
     position:relative;overflow:hidden;transition:transform .15s;cursor:pointer}
   .btn.press{transform:scale(.94)}
+  .btn:disabled{opacity:.6}
   .ripple{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px;border-radius:50%;
     border:2px solid #fff;background:rgba(255,255,255,.3);animation:rip .7s forwards;pointer-events:none}
   @keyframes rip{from{transform:scale(.3);opacity:1}to{transform:scale(1.5);opacity:0}}
@@ -542,26 +543,47 @@ setInterval(() => {
 }, 260);
 
 /* ====== музыка ====== */
-let audio = null;
-if (CONFIG.music) { audio = new Audio(CONFIG.music); audio.preload = "auto"; audio.loop = true; }
-async function startMusic() {
-  if (!audio) return;
-  if (audio.readyState < 1) await new Promise((r) => { audio.addEventListener("loadedmetadata", r, { once: true }); setTimeout(r, 4000); });
-  audio.currentTime = CONFIG.musicStart;
-  try { await audio.play(); $("#mute").classList.add("on"); if (CONFIG.songLabel) $("#song").classList.add("on"); } catch (e) {}
+// песня скачивается целиком заранее, чтобы в Telegram она не обрывалась на середине
+let audio = null, audioReady = true;
+if (CONFIG.music) {
+  audio = new Audio(); audio.preload = "auto"; audio.loop = true; audioReady = false;
+  const btn = $("#openBtn"); btn.disabled = true; btn.textContent = "Загрузка… 🎵";
+  const ready = () => { if (audioReady) return; audioReady = true; btn.disabled = false; btn.textContent = "Открыть"; };
+  fetch(CONFIG.music).then((r) => { if (!r.ok) throw 0; return r.blob(); })
+    .then((b) => { if (audioReady) return; audio.src = URL.createObjectURL(b); audio.addEventListener("loadedmetadata", ready, { once: true }); audio.load(); })
+    .catch(() => { if (!audioReady) { audio.src = CONFIG.music; ready(); } });
+  setTimeout(() => { if (!audioReady) { audio.src = CONFIG.music; ready(); } }, 12000);
+  audio.addEventListener("loadedmetadata", () => { if (playing && audio.currentTime < CONFIG.musicStart - 1) audio.currentTime = CONFIG.musicStart; });
+}
+let playing = false;
+function startMusic() {   // вызывается прямо в нажатии, иначе телефон не даст включить звук
+  if (!audio) return Promise.resolve(false);
+  playing = true;
+  try { audio.currentTime = CONFIG.musicStart; } catch (e) {}
+  return audio.play().then(() => {
+    $("#mute").classList.add("on"); if (CONFIG.songLabel) $("#song").classList.add("on"); return true;
+  }).catch(() => false);
 }
 $("#mute").addEventListener("click", () => { audio.muted = !audio.muted; $("#mute").textContent = audio.muted ? "🔇" : "🔊"; });
 
 /* ====== сценарий ====== */
+// карточки идут по времени песни: если песня подвиснет, карточки подождут её (но не дольше 2 секунд)
+let t0 = 0, useAudio = false;
+const clock = () => {
+  const timer = (performance.now() - t0) / 1000;
+  return useAudio ? Math.max(audio.currentTime - CONFIG.musicStart, timer - 2) : timer;
+};
+const until = (t) => new Promise((r) => (function f() { clock() >= t ? r() : setTimeout(f, 20); })());
+
 let runId = 0;
-async function run() {
+async function run(music) {
   const id = ++runId;
   build(); noTries = 0;
-  await startMusic();
-  const t0 = performance.now();
+  useAudio = await music;
+  t0 = performance.now();
   for (let i = 0; i < CONFIG.scenes.length; i++) {
     const s = CONFIG.scenes[i];
-    await sleep(t0 + (s.at || 0) * 1000 - performance.now());
+    await until(s.at || 0);
     if (id !== runId) return;
     const el = $("#sc" + i);
     show(el);
@@ -571,7 +593,7 @@ async function run() {
     TYPES[s.type].play((sel) => el.querySelector(sel));
   }
   const last = CONFIG.scenes[CONFIG.scenes.length - 1];
-  await sleep(t0 + (CONFIG.endAt || (last.at || 0) + 6) * 1000 - performance.now());
+  await until(CONFIG.endAt || (last.at || 0) + 6);
   if (id === runId) finale();
 }
 
@@ -599,8 +621,8 @@ document.addEventListener("click", async (e) => {
   finale();
 });
 
-$("#openBtn").addEventListener("click", async () => { await tap($("#openBtn")); run(); });
-$("#againBtn").addEventListener("click", () => run());
+$("#openBtn").addEventListener("click", () => { const m = startMusic(); tap($("#openBtn")); run(m); });
+$("#againBtn").addEventListener("click", () => run(startMusic()));
 
 /* ====== светящиеся частицы на фоне ====== */
 const cv = $("#fx"), ctx = cv.getContext("2d");
